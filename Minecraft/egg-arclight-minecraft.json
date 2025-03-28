@@ -1,0 +1,70 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2025-03-28T17:19:33+01:00",
+    "name": "Arclight Minecraft",
+    "author": "ptero@redbananaofficial.com",
+    "description": "Arclight is a Bukkit server implementation on common mod loaders.\r\n\r\nCopyright: https:\/\/github.com\/Custom-Ptero-Stuff",
+    "features": [
+        "eula",
+        "java_version",
+        "pid_limit"
+    ],
+    "docker_images": {
+        "Java 21": "ghcr.io\/ptero-eggs\/yolks:java_21",
+        "Java 17": "ghcr.io\/ptero-eggs\/yolks:java_17",
+        "Java 16": "ghcr.io\/ptero-eggs\/yolks:java_16",
+        "Java 11": "ghcr.io\/ptero-eggs\/yolks:java_11",
+        "Java 8": "ghcr.io\/ptero-eggs\/yolks:java_8"
+    },
+    "file_denylist": [],
+    "startup": "java -Xms128M -XX:MaxRAMPercentage=95.0 -Dterminal.jline=false -Dterminal.ansi=true -jar server.jar nogui",
+    "config": {
+        "files": "{\r\n    \"server.properties\": {\r\n        \"parser\": \"properties\",\r\n        \"find\": {\r\n            \"server-ip\": \"0.0.0.0\",\r\n            \"server-port\": \"{{server.build.default.port}}\",\r\n            \"query.port\": \"{{server.build.default.port}}\"\r\n        }\r\n    }\r\n}",
+        "startup": "{\r\n    \"done\": \")! For help, type \"\r\n}",
+        "logs": "{}",
+        "stop": "stop"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!\/bin\/bash\r\n# Arclight Installation Script with Loader Selection\r\n\r\n# Server Files: \/mnt\/server\r\napt update\r\napt install -y curl jq\r\n\r\nmkdir -p \/mnt\/server\r\ncd \/mnt\/server\r\n\r\n# Clean up input variables\r\nARCLIGHT_VERSION=\"$(echo \"$ARCLIGHT_VERSION\" | tr -d ' ')\"\r\nARCLIGHT_LOADER=\"$(echo \"$ARCLIGHT_LOADER\" | tr -d ' ' | tr '[:upper:]' '[:lower:]')\"\r\n\r\n# Validate input\r\nif [[ -z \"$ARCLIGHT_VERSION\" ]]; then\r\n  echo \"\u274c No Arclight version specified. Exiting.\"\r\n  exit 1\r\nfi\r\n\r\necho \"\ud83d\udd0d Searching for Arclight release: $ARCLIGHT_VERSION\"\r\n\r\n# Fetch all releases from GitHub API\r\nRELEASES_API=\"https:\/\/api.github.com\/repos\/IzzelAliz\/Arclight\/releases?per_page=100\"\r\nRELEASES_JSON=$(curl -sL \"$RELEASES_API\")\r\n\r\n# Find the release that matches the tag name\r\nRELEASE_DATA=$(echo \"$RELEASES_JSON\" | jq -c \".[] | select(.tag_name == \\\"$ARCLIGHT_VERSION\\\")\")\r\n\r\nif [[ -z \"$RELEASE_DATA\" ]]; then\r\n  echo \"\u274c Release with tag '$ARCLIGHT_VERSION' not found.\"\r\n  exit 2\r\nfi\r\n\r\n# Extract available assets from the release\r\nAVAILABLE_ASSETS=$(echo \"$RELEASE_DATA\" | jq -r '.assets[].name')\r\n\r\n# Determine the appropriate JAR file\r\nSELECTED_JAR=\"\"\r\nfor asset in $AVAILABLE_ASSETS; do\r\n  if [[ \"$asset\" == *\"$ARCLIGHT_LOADER\"* ]]; then\r\n    SELECTED_JAR=\"$asset\"\r\n    break\r\n  fi\r\ndone\r\n\r\n# Fallback to the first available asset if the specified loader is not found\r\nif [[ -z \"$SELECTED_JAR\" ]]; then\r\n  echo \"\u26a0\ufe0f  Specified loader '$ARCLIGHT_LOADER' not found for version '$ARCLIGHT_VERSION'. Falling back to the first available asset.\"\r\n  SELECTED_JAR=$(echo \"$AVAILABLE_ASSETS\" | head -n 1)\r\n  # Extract the actual loader from the selected JAR filename\r\n  ARCLIGHT_LOADER=$(echo \"$SELECTED_JAR\" | grep -oP 'arclight-\\K\\w+(?=-.*\\.jar)')\r\nfi\r\n\r\n# Build download URL from API response\r\nDOWNLOAD_URL=$(echo \"$RELEASE_DATA\" | jq -r \".assets[] | select(.name == \\\"$SELECTED_JAR\\\") | .browser_download_url\")\r\n\r\nif [[ -z \"$DOWNLOAD_URL\" || \"$DOWNLOAD_URL\" == \"null\" ]]; then\r\n  echo \"\u274c Could not extract a valid download URL for: $SELECTED_JAR\"\r\n  exit 4\r\nfi\r\n\r\necho \"\ud83d\udce5 Downloading $SELECTED_JAR from:\"\r\necho \"$DOWNLOAD_URL\"\r\n\r\n# Download the file\r\ncurl -L --retry 5 --retry-delay 5 -s -o \"$SELECTED_JAR\" \"$DOWNLOAD_URL\"\r\n\r\nif [[ ! -f \"$SELECTED_JAR\" || ! -s \"$SELECTED_JAR\" ]]; then\r\n  echo \"\u274c Download failed or file is empty.\"\r\n  rm -f \"$SELECTED_JAR\"\r\n  exit 5\r\nfi\r\n\r\n# Rename to server.jar\r\nmv \"$SELECTED_JAR\" server.jar\r\n\r\necho \"\u2705 Arclight $ARCLIGHT_VERSION with loader '$ARCLIGHT_LOADER' downloaded and installed as server.jar\"\r\necho \"--------------------------------------------------------------------\"",
+            "container": "openjdk:8-jdk-slim",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Server Jar File",
+            "description": "The name of the Jarfile to use (leave default)",
+            "env_variable": "SERVER_JARFILE",
+            "default_value": "server.jar",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|regex:\/^([\\w\\d._-]+)(\\.jar)$\/",
+            "field_type": "text"
+        },
+        {
+            "name": "Arclight Version",
+            "description": "The full exact version.\r\n\r\nEx. Executions\/1.0.8\r\n\r\nOverrides MC_VERSION and BUILD_TYPE. If it fails to download the server files it will fail to install.",
+            "env_variable": "ARCLIGHT_VERSION",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|regex:\/^[0-9a-zA-Z\\\/\\.\\-]+$\/",
+            "field_type": "text"
+        },
+        {
+            "name": "Arclight Loader",
+            "description": "Examples; Forge, Neoforge, Fabric, FabricLoader or FabricApi. If the selected Loader isn't available for your selected value, then it will default it to the first available one for that version.",
+            "env_variable": "ARCLIGHT_LOADER",
+            "default_value": "Forge",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:20",
+            "field_type": "text"
+        }
+    ]
+}
